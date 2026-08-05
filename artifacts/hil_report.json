@@ -1,0 +1,20 @@
+{
+  "created_at_epoch_s": 1785952469.0233035,
+  "total": 1,
+  "passed": 1,
+  "failed": 0,
+  "results": [
+    {
+      "name": "hil_bench",
+      "command": [
+        "C:\\Users\\ROHIT\\OneDrive\\Desktop\\NETRA AI\\.venv\\Scripts\\python.exe",
+        "hil_bench_runner.py",
+        "--simulated"
+      ],
+      "exit_code": 0,
+      "duration_ms": 4823,
+      "output_tail": "hil_phase=allow exit= 0\nhil_phase=deny exit= 0\nhil_result=pass simulated=true\n",
+      "passed": true
+    }
+  ]
+}
