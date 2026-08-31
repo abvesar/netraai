@@ -1,3 +1,0 @@
-{"sequence_id":1,"timestamp_ms":1785948739059,"decision":"DENY","reasons":["alcohol_above_threshold"],"sensor_value":0.9,"facial_verified":true,"sensor_ok":true,"is_calibrated":true}
-{"sequence_id":1,"timestamp_ms":1785948747961,"decision":"ALLOW","reasons":["all_checks_passed"],"sensor_value":0.3,"facial_verified":true,"sensor_ok":true,"is_calibrated":true}
-{"sequence_id":1,"timestamp_ms":1785948771763,"decision":"DENY","reasons":["alcohol_above_threshold"],"sensor_value":0.9,"facial_verified":true,"sensor_ok":true,"is_calibrated":true}

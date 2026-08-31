@@ -2,7 +2,15 @@ from __future__ import annotations
 
 import unittest
 
-from safety_core import SafetyDecision, SafetyGatekeeper, SafetyPolicyConfig, SensorReading
+from safety_core import (
+    DriverBehaviorSignal,
+    DriverBehaviorMonitor,
+    DriverRiskLevel,
+    SafetyDecision,
+    SafetyGatekeeper,
+    SafetyPolicyConfig,
+    SensorReading,
+)
 
 
 class SafetyCoreTests(unittest.TestCase):
@@ -32,6 +40,25 @@ class SafetyCoreTests(unittest.TestCase):
         self.assertEqual(result.decision, SafetyDecision.DENY)
         self.assertIn("facial_not_verified", result.reasons)
         self.assertIn("alcohol_above_threshold", result.reasons)
+
+    def test_ai_monitor_flags_drowsiness_and_distraction(self) -> None:
+        monitor = DriverBehaviorMonitor()
+        signal = DriverBehaviorSignal(
+            driver_id="drv_001",
+            vehicle_id="veh_001",
+            drowsiness_score=0.89,
+            distraction_score=0.76,
+            yawning_score=0.7,
+            phone_usage_score=0.9,
+            speed_kph=88.0,
+            timestamp_ms=1000,
+        )
+
+        result = monitor.evaluate(signal, now_ms=1000)
+
+        self.assertEqual(result.risk_level, DriverRiskLevel.HIGH)
+        self.assertIn("drowsiness_high", result.reasons)
+        self.assertIn("distraction_high", result.reasons)
 
 
 if __name__ == "__main__":
