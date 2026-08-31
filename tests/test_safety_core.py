@@ -11,6 +11,7 @@ from safety_core import (
     SafetyPolicyConfig,
     SensorReading,
 )
+from driver_monitor_dashboard import build_capture_candidates
 
 
 class SafetyCoreTests(unittest.TestCase):
@@ -59,6 +60,12 @@ class SafetyCoreTests(unittest.TestCase):
         self.assertEqual(result.risk_level, DriverRiskLevel.HIGH)
         self.assertIn("drowsiness_high", result.reasons)
         self.assertIn("distraction_high", result.reasons)
+
+    def test_build_capture_candidates_prefers_selected_index(self) -> None:
+        candidates = build_capture_candidates(1)
+        self.assertEqual(candidates[0], 1)
+        self.assertIn(0, candidates)
+        self.assertIn(1, candidates)
 
 
 if __name__ == "__main__":
