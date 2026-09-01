@@ -1,0 +1,4 @@
+{
+  "tests/test_safety_core.py": true,
+  "webcam_camera_test.py": true
+}

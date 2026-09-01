@@ -1,35 +1,38 @@
-from __future__ import annotations
-
 import argparse
 import json
 import time
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Protocol
+from typing import Dict, Protocol
 
 from safety_core import (
     DriverBehaviorAssessment,
     DriverBehaviorMonitor,
     DriverBehaviorSignal,
-    DriverRiskLevel,
 )
 
 
+# ---------------------------------------------------------------------------
+# Protocols
+# ---------------------------------------------------------------------------
 class DriverSignalPort(Protocol):
     def read(self, now_ms: int) -> DriverBehaviorSignal:
         """Return a real-time AI model input for the driver monitoring system."""
 
 
 class TransmissionPort(Protocol):
-    def send_alert(self, payload: dict[str, object]) -> None:
+    def send_alert(self, payload: Dict[str, object]) -> None:
         """Transmit a driver-risk alert via the configured channel."""
 
 
 class AuditLogPort(Protocol):
-    def write_event(self, event: dict[str, object]) -> None:
+    def write_event(self, event: Dict[str, object]) -> None:
         """Persist the AI-monitored driver event."""
 
 
+# ---------------------------------------------------------------------------
+# Configuration and signal adapters
+# ---------------------------------------------------------------------------
 @dataclass(frozen=True)
 class NetraHubConfig:
     cycle_seconds: float = 1.0
@@ -69,13 +72,16 @@ class FixedDriverSignalAdapter:
         )
 
 
+# ---------------------------------------------------------------------------
+# Transmission adapters
+# ---------------------------------------------------------------------------
 class CloudTransmissionAdapter:
-    def send_alert(self, payload: dict[str, object]) -> None:
+    def send_alert(self, payload: Dict[str, object]) -> None:
         print(f"cloud_tx driver_id={payload.get('driver_id')} risk={payload.get('risk_level')} reasons={payload.get('reasons')}")
 
 
 class SatelliteTransmissionAdapter:
-    def send_alert(self, payload: dict[str, object]) -> None:
+    def send_alert(self, payload: Dict[str, object]) -> None:
         print(f"satellite_tx driver_id={payload.get('driver_id')} risk={payload.get('risk_level')} reasons={payload.get('reasons')}")
 
 
@@ -84,7 +90,7 @@ class HybridTransmissionAdapter:
         self.cloud = cloud
         self.satellite = satellite
 
-    def send_alert(self, payload: dict[str, object]) -> None:
+    def send_alert(self, payload: Dict[str, object]) -> None:
         self.cloud.send_alert(payload)
         self.satellite.send_alert(payload)
 
@@ -94,11 +100,14 @@ class JsonlAuditLogAdapter:
         self.path = Path(output_path)
         self.path.parent.mkdir(parents=True, exist_ok=True)
 
-    def write_event(self, event: dict[str, object]) -> None:
+    def write_event(self, event: Dict[str, object]) -> None:
         with self.path.open("a", encoding="utf-8") as handle:
             handle.write(json.dumps(event, separators=(",", ":")) + "\n")
 
 
+# ---------------------------------------------------------------------------
+# Monitoring service
+# ---------------------------------------------------------------------------
 class NetraDriverMonitoringService:
     """AI-first monitoring service that checks driver behavior and routes telemetry through cloud or satellite links."""
 
@@ -121,7 +130,7 @@ class NetraDriverMonitoringService:
         assessment = self.monitor.evaluate(signal=signal, now_ms=now_ms)
 
         self.sequence_id += 1
-        payload: dict[str, object] = {
+        payload: Dict[str, object] = {
             "sequence_id": self.sequence_id,
             "timestamp_ms": now_ms,
             "driver_id": signal.driver_id,
@@ -149,6 +158,9 @@ class NetraDriverMonitoringService:
         return assessment
 
 
+# ---------------------------------------------------------------------------
+# CLI and composition
+# ---------------------------------------------------------------------------
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="NETRA AI driver monitoring hub")
     parser.add_argument("--driver-id", default="drv_001")
@@ -165,6 +177,17 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
+def build_transmission_adapter(mode: str) -> TransmissionPort:
+    if mode == "cloud":
+        return CloudTransmissionAdapter()
+    if mode == "satellite":
+        return SatelliteTransmissionAdapter()
+    return HybridTransmissionAdapter(
+        cloud=CloudTransmissionAdapter(),
+        satellite=SatelliteTransmissionAdapter(),
+    )
+
+
 def main() -> int:
     args = build_parser().parse_args()
 
@@ -179,18 +202,9 @@ def main() -> int:
     )
 
     monitor = DriverBehaviorMonitor()
-
-    if args.transmission_mode == "cloud":
-        transmission: TransmissionPort = CloudTransmissionAdapter()
-    elif args.transmission_mode == "satellite":
-        transmission = SatelliteTransmissionAdapter()
-    else:
-        transmission = HybridTransmissionAdapter(
-            cloud=CloudTransmissionAdapter(),
-            satellite=SatelliteTransmissionAdapter(),
-        )
-
+    transmission = build_transmission_adapter(args.transmission_mode)
     audit = JsonlAuditLogAdapter(output_path=args.audit_log)
+
     service = NetraDriverMonitoringService(
         monitor=monitor,
         signal_source=signal_source,
@@ -217,3 +231,29 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
+
+
+# ---------------------------------------------------------------------------
+# Reference sketch kept for design context only; not executed at import time.
+# ---------------------------------------------------------------------------
+# from driver_monitor import NetraAIDMS
+# import cv2
+#
+# dms = NetraAIDMS()
+# camera = cv2.VideoCapture(0)
+#
+# while True:
+#     ret, frame = camera.read()
+#     if not ret:
+#         break
+#
+#     safety_signals = dms.process_frame(frame)
+#
+#     if safety_signals["drowsy"]:
+#         trigger_hardware_buzzer()
+#         send_high_risk_escalation(
+#             reason="drowsiness_high",
+#             mode="satellite" if network_low else "cloud",
+#         )
+#     elif safety_signals["distracted"]:
+#         trigger_audio_intervention("Please keep your eyes on the road.")

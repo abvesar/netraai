@@ -1,12 +1,10 @@
-from __future__ import annotations
-
 import argparse
 import json
 import math
 import threading
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-from typing import Optional
+from typing import Dict, List, Optional, Set, Tuple, Type
 from urllib.parse import urlsplit
 
 import cv2
@@ -14,9 +12,9 @@ import cv2
 from safety_core import DriverBehaviorMonitor, DriverBehaviorSignal
 
 
-def build_capture_candidates(preferred_index: int = 0) -> list[int]:
-    candidates: list[int] = []
-    seen: set[int] = set()
+def build_capture_candidates(preferred_index: int = 0) -> List[int]:
+    candidates: List[int] = []
+    seen: Set[int] = set()
     for index in [preferred_index, 0, 1, 2, 3, -1]:
         if index not in seen and index >= -1:
             candidates.append(index)
@@ -51,7 +49,7 @@ class DriverAIController:
         self.camera_index = camera_index
         self.monitor = DriverBehaviorMonitor()
         self.frame_store = FrameStore()
-        self.last_status: dict[str, object] = {
+        self.last_status: Dict[str, object] = {
             "risk_level": "HIGH",
             "reasons": ["drowsiness_high", "distraction_high"],
             "confidence": 0.91,
@@ -145,7 +143,7 @@ class DriverAIController:
             "recommended_transmission": assessment.recommended_transmission,
         }
 
-    def get_status(self) -> dict[str, object]:
+    def get_status(self) -> Dict[str, object]:
         return self.last_status
 
     def get_latest_frame(self) -> Optional[bytes]:
@@ -459,7 +457,7 @@ class DriverDashboardHandler(BaseHTTPRequestHandler):
 
 
 class DriverDashboardServer(ThreadingHTTPServer):
-    def __init__(self, server_address: tuple[str, int], handler_cls: type[BaseHTTPRequestHandler], controller: DriverAIController) -> None:
+    def __init__(self, server_address: Tuple[str, int], handler_cls: Type[BaseHTTPRequestHandler], controller: DriverAIController) -> None:
         super().__init__(server_address, handler_cls)
         self.controller = controller
 

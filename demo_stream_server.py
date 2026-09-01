@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 import argparse
 import json
 import threading
@@ -133,7 +131,7 @@ class DemoCameraHandler(BaseHTTPRequestHandler):
 
 
 class DemoStreamServer(ThreadingHTTPServer):
-    def __init__(self, server_address: tuple[str, int], handler_cls: type[BaseHTTPRequestHandler]) -> None:
+    def __init__(self, server_address: Tuple[str, int], handler_cls: Type[BaseHTTPRequestHandler]) -> None:
         super().__init__(server_address, handler_cls)
         self.frame_store = FrameStore()
 

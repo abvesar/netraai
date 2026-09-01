@@ -1,9 +1,7 @@
-from __future__ import annotations
-
 import argparse
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional
+from typing import Dict, Optional, Tuple, Type
 
 import requests
 
@@ -78,7 +76,7 @@ class WebcamNetworkCameraClient:
         finally:
             capture.release()
 
-    def _post_webhook(self, payload: dict) -> int:
+    def _post_webhook(self, payload: Dict[str, object]) -> int:
         if not self.config.webhook_url:
             print(f"WEBHOOK_SKIPPED payload={payload}")
             return 200
