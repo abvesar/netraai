@@ -56,6 +56,23 @@ The current design follows an AI-first monitoring model:
 
 ## Quick start
 
+### 0) Start the local webcam dashboard for live face tracking
+
+This is the simplest way to view the live driver-monitoring dashboard from your machine webcam.
+
+From the project root:
+
+```powershell
+cd "C:\Users\ROHIT\OneDrive\Desktop\NETRA AI"
+& ".venv\Scripts\python.exe" app.py
+```
+
+Then open:
+
+- http://localhost:5000/
+
+This Flask app uses the local OpenCV camera, runs the AI analysis on each frame, and overlays live driver-status hints directly on the stream.
+
 ### 1) Use the project virtual environment
 
 From the project root:
