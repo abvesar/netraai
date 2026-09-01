@@ -1,8 +1,8 @@
-# NetraAI Software Architecture Standards (Prototype)
+# DRISHTI AI Software Architecture Standards (Prototype)
 
-## 1) NETRA AI V2 Architecture: AI Monitoring First
+## 1) DRISHTI AI V2 Architecture: AI Monitoring First
 
-NETRA AI is now structured around AI-first driver behavior monitoring instead of a hardware immobilizer gatekeeper pattern.
+DRISHTI AI is now structured around AI-first driver behavior monitoring instead of a hardware immobilizer gatekeeper pattern.
 
 - Application/Monitoring Layer:
   - `safety_core.py`
@@ -40,7 +40,7 @@ The driver monitoring pipeline returns:
 
 ## 4) Transmission Design
 
-The initial NETRA AI network design keeps transmission modes specific and lightweight:
+The initial DRISHTI AI network design keeps transmission modes specific and lightweight:
 - Cloud mode: routine telemetry and moderate risk events.
 - Satellite mode: severe risk events, poor connectivity, or emergency alert escalation.
 - Hybrid mode: send both the cloud and satellite copy when a high-risk event is detected.

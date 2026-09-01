@@ -26,7 +26,7 @@ class RemoteCameraSender:
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description="Demo sender for remote laptop webcam to NETRA AI demo server")
+    parser = argparse.ArgumentParser(description="Demo sender for remote laptop webcam to DRISHTI AI demo server")
     parser.add_argument("--camera-url", required=True, help="URL of the remote webcam snapshot endpoint")
     parser.add_argument("--upload-url", default="http://localhost:9000/upload", help="Demo server upload endpoint")
     parser.add_argument("--interval-seconds", type=float, default=0.5, help="How often to send frames")

@@ -1,6 +1,6 @@
-# NETRA AI
+# DRISHTI AI
 
-NETRA AI is an AI-first driver monitoring prototype focused on detecting driver fatigue, distraction, speeding, and risky behavior, then routing alerts through cloud, satellite, or hybrid communication flows.
+DRISHTI AI is an AI-first driver monitoring prototype focused on detecting driver fatigue, distraction, speeding, and risky behavior, then routing alerts through cloud, satellite, or hybrid communication flows.
 
 ## Overview
 
@@ -32,7 +32,7 @@ The current design follows an AI-first monitoring model:
 - [demo_stream_server.py](demo_stream_server.py) — sample MJPEG stream server that serves uploaded frames from a remote camera
 - [demo_remote_camera_sender.py](demo_remote_camera_sender.py) — sample sender that uploads JPEG frames from a remote device to the demo stream server
 - [webcam_camera_test.py](webcam_camera_test.py) — webcam/network validation utility
-- [start_netra.ps1](start_netra.ps1) — one-click Windows launcher for the monitoring hub
+- [start_drishiti.ps1](start_drishiti.ps1) — one-click Windows launcher for the monitoring hub
 - [tests/test_safety_core.py](tests/test_safety_core.py) — regression tests for the core risk engine
 
 ## How the monitoring works
@@ -75,7 +75,7 @@ From the project root:
 This is useful when no local webcam is available.
 
 ```powershell
-cd "C:\Users\ROHIT\OneDrive\Desktop\NETRA AI"
+cd "C:\Users\ROHIT\OneDrive\Desktop\DRISHTI AI"
 & ".venv\Scripts\python.exe" demo_stream_server.py --host 0.0.0.0 --port 9000
 ```
 
@@ -88,7 +88,7 @@ Then send frames from another device or process:
 ### 4) Start the dashboard with the remote stream
 
 ```powershell
-cd "C:\Users\ROHIT\OneDrive\Desktop\NETRA AI"
+cd "C:\Users\ROHIT\OneDrive\Desktop\DRISHTI AI"
 & ".venv\Scripts\python.exe" driver_monitor_dashboard.py --host 0.0.0.0 --port 9001 --stream-url http://127.0.0.1:9000/feed
 ```
 
@@ -100,7 +100,7 @@ Open the browser at:
 ### 5) One-click Windows launch
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File .\start_netra.ps1
+powershell -ExecutionPolicy Bypass -File .\start_drishiti.ps1
 ```
 
 ### 6) Run the tests

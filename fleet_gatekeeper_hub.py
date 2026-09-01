@@ -34,7 +34,7 @@ class AuditLogPort(Protocol):
 # Configuration and signal adapters
 # ---------------------------------------------------------------------------
 @dataclass(frozen=True)
-class NetraHubConfig:
+class DrishtiHubConfig:
     cycle_seconds: float = 1.0
     max_cycles: int = 0
     transmission_mode: str = "cloud"
@@ -108,7 +108,7 @@ class JsonlAuditLogAdapter:
 # ---------------------------------------------------------------------------
 # Monitoring service
 # ---------------------------------------------------------------------------
-class NetraDriverMonitoringService:
+class DrishtiDriverMonitoringService:
     """AI-first monitoring service that checks driver behavior and routes telemetry through cloud or satellite links."""
 
     def __init__(
@@ -162,7 +162,7 @@ class NetraDriverMonitoringService:
 # CLI and composition
 # ---------------------------------------------------------------------------
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description="NETRA AI driver monitoring hub")
+    parser = argparse.ArgumentParser(description="DRISHTI AI driver monitoring hub")
     parser.add_argument("--driver-id", default="drv_001")
     parser.add_argument("--vehicle-id", default="veh_001")
     parser.add_argument("--drowsiness-score", type=float, default=0.82)
@@ -173,7 +173,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--cycle-seconds", type=float, default=1.0)
     parser.add_argument("--max-cycles", type=int, default=1)
     parser.add_argument("--transmission-mode", choices=["cloud", "satellite", "hybrid"], default="cloud")
-    parser.add_argument("--audit-log", default="artifacts/netra_driver_monitoring.jsonl")
+    parser.add_argument("--audit-log", default="artifacts/drishti_driver_monitoring.jsonl")
     return parser
 
 
@@ -205,14 +205,14 @@ def main() -> int:
     transmission = build_transmission_adapter(args.transmission_mode)
     audit = JsonlAuditLogAdapter(output_path=args.audit_log)
 
-    service = NetraDriverMonitoringService(
+    service = DrishtiDriverMonitoringService(
         monitor=monitor,
         signal_source=signal_source,
         transmission=transmission,
         audit=audit,
     )
 
-    config = NetraHubConfig(
+    config = DrishtiHubConfig(
         cycle_seconds=max(0.05, args.cycle_seconds),
         max_cycles=args.max_cycles,
         transmission_mode=args.transmission_mode,
@@ -236,10 +236,10 @@ if __name__ == "__main__":
 # ---------------------------------------------------------------------------
 # Reference sketch kept for design context only; not executed at import time.
 # ---------------------------------------------------------------------------
-# from driver_monitor import NetraAIDMS
+# from driver_monitor import DrishtiAIDMS
 # import cv2
 #
-# dms = NetraAIDMS()
+# dms = DrishtiAIDMS()
 # camera = cv2.VideoCapture(0)
 #
 # while True:

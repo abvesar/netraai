@@ -29,7 +29,7 @@ class FrameStore:
 
 
 class DemoCameraHandler(BaseHTTPRequestHandler):
-    server_version = "NetraDemoStream/1.0"
+    server_version = "DrishtiDemoStream/1.0"
 
     def do_GET(self) -> None:  # noqa: N802
         if self.path == "/health":
@@ -59,7 +59,7 @@ class DemoCameraHandler(BaseHTTPRequestHandler):
             html = """
             <html>
               <body>
-                <h2>NETRA AI Demo Camera Stream</h2>
+                <h2>DRISHTI AI Demo Camera Stream</h2>
                 <img src="/feed" width="640" height="480" />
               </body>
             </html>
@@ -146,7 +146,7 @@ def build_parser() -> argparse.ArgumentParser:
 def main() -> int:
     args = build_parser().parse_args()
     server = DemoStreamServer((args.host, args.port), DemoCameraHandler)
-    print(f"NETRA AI demo server listening on http://{args.host}:{args.port}")
+    print(f"DRISHTI AI demo server listening on http://{args.host}:{args.port}")
     print("Use POST /upload with JPEG bytes from the remote laptop")
     print("Open http://<your-laptop-ip>:9000/ to view the stream")
     try:

@@ -5,7 +5,7 @@ import cv2
 import mediapipe as mp
 import numpy as np
 
-class NetraAIDMS:
+class DrishtiAIDMS:
     def __init__(self):
         # Initialize MediaPipe Face Mesh
         self.mp_face_mesh = mp.solutions.face_mesh
@@ -140,9 +140,9 @@ class NetraAIDMS:
 # Local testing loop (Simulating Edge Cam Execution)
 if __name__ == "__main__":
     cap = cv2.VideoCapture(0)
-    dms_system = NetraAIDMS()
+    dms_system = DrishtiAIDMS()
     
-    print("[INFO] NetraAI DMS Core Module Initialized. Press 'q' to exit.")
+    print("[INFO] DrishtiAI DMS Core Module Initialized. Press 'q' to exit.")
     while cap.isOpened():
         ret, frame = cap.read()
         if not ret: break
@@ -157,7 +157,7 @@ if __name__ == "__main__":
         elif alerts["yawning"]:
             cv2.putText(frame, "ALERT: Yawn Detected (Fatigue)", (30, 140), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 255), 2)
             
-        cv2.imshow("NetraAI - Edge DMS Processor Mock", frame)
+        cv2.imshow("DrishtiAI - Edge DMS Processor Mock", frame)
         if cv2.waitKey(1) & 0xFF == ord('q'): break
         
     cap.release()

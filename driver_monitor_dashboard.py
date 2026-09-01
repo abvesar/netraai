@@ -9,7 +9,7 @@ from urllib.parse import urlsplit
 
 import cv2
 
-from driver_monitor import NetraAIDMS
+from driver_monitor import DrishtiAIDMS
 from safety_core import DriverBehaviorMonitor, DriverBehaviorSignal
 
 
@@ -51,7 +51,7 @@ class DriverAIController:
         self.camera_index = camera_index
         self.stream_url = stream_url
         self.monitor = DriverBehaviorMonitor()
-        self.ai_tracker = NetraAIDMS()
+        self.ai_tracker = DrishtiAIDMS()
         self.frame_store = FrameStore()
         self.last_status: Dict[str, object] = {
             "risk_level": "HIGH",
@@ -135,7 +135,7 @@ class DriverAIController:
         width, height = 640, 480
         canvas = __import__("numpy").zeros((height, width, 3), dtype="uint8")
         canvas[:] = (18, 20, 30)
-        cv2.putText(canvas, "NETRA AI DRIVER VIEW", (85, 190), cv2.FONT_HERSHEY_SIMPLEX, 1.4, (255, 255, 255), 2)
+        cv2.putText(canvas, "DRISHTI AI DRIVER VIEW", (65, 190), cv2.FONT_HERSHEY_SIMPLEX, 1.2, (255, 255, 255), 2)
         cv2.putText(canvas, "Camera unavailable - checking device", (90, 250), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (180, 210, 255), 2)
         cv2.putText(canvas, "AI risk engine active", (150, 310), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (120, 255, 160), 2)
         ok, encoded = cv2.imencode(".jpg", canvas, [int(cv2.IMWRITE_JPEG_QUALITY), 80])
@@ -206,7 +206,7 @@ class DriverAIController:
 
 
 class DriverDashboardHandler(BaseHTTPRequestHandler):
-    server_version = "NetraDriverDashboard/1.0"
+    server_version = "DrishtiDriverDashboard/1.0"
 
     def do_GET(self) -> None:  # noqa: N802
         path = urlsplit(self.path).path
@@ -252,7 +252,7 @@ class DriverDashboardHandler(BaseHTTPRequestHandler):
         <html>
         <head>
             <meta charset="UTF-8" />
-            <title>NETRA AI Driver Monitor</title>
+            <title>DRISHTI AI Driver Monitor</title>
             <style>
                 body {
                     margin: 0;
@@ -413,7 +413,7 @@ class DriverDashboardHandler(BaseHTTPRequestHandler):
             <div class="container">
                 <div class="header">
                     <div class="title-wrap">
-                        <div class="logo-pill">NETRA</div>
+                        <div class="logo-pill">DRISHTI</div>
                         <div>
                             <div class="brand">Driver Intelligence Platform</div>
                             <h2>Driver Monitoring View</h2>
@@ -518,7 +518,7 @@ class DriverDashboardServer(ThreadingHTTPServer):
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description="NETRA AI driver monitoring dashboard")
+    parser = argparse.ArgumentParser(description="DRISHTI AI driver monitoring dashboard")
     parser.add_argument("--host", default="0.0.0.0")
     parser.add_argument("--port", type=int, default=9001)
     parser.add_argument("--camera-index", type=int, default=0)
@@ -547,7 +547,7 @@ def main() -> int:
     controller.start()
 
     server = DriverDashboardServer((args.host, args.port), DriverDashboardHandler, controller)
-    print(f"NETRA AI dashboard is running on http://{args.host}:{args.port}/")
+    print(f"DRISHTI AI dashboard is running on http://{args.host}:{args.port}/")
     print("Open the page in your browser to view the live driver monitoring dashboard.")
     try:
         server.serve_forever()
