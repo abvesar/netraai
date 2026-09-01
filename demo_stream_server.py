@@ -3,7 +3,7 @@ import json
 import threading
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-from typing import Optional
+from typing import Optional, Tuple, Type
 
 
 class FrameStore:

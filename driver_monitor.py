@@ -1,7 +1,9 @@
+import math
+import time
+
 import cv2
 import mediapipe as mp
 import numpy as np
-import time
 
 class NetraAIDMS:
     def __init__(self):
@@ -73,17 +75,32 @@ class NetraAIDMS:
         camera_matrix = np.array([[focal_length, 0, center[0]],
                                   [0, focal_length, center[1]],
                                   [0, 0, 1]], dtype=np.float32)
-        
-        dist_coeffs = np.zeros((4, 1)) # Assuming no lens distortion
-        
-        # Solve PnP (Perspective-n-Point) to get rotation vector
-        _, rotation_vector, _ = cv2.solvePnP(model_points, image_points, camera_matrix, dist_coeffs, flags=cv2.SOLVEPNP_ITERATIVE)
-        
-        # Convert rotation vector to rotation matrix, then to Euler Angles
+
+        dist_coeffs = np.zeros((4, 1))
+
+        try:
+            _, rotation_vector, _ = cv2.solvePnP(
+                model_points,
+                image_points,
+                camera_matrix,
+                dist_coeffs,
+                flags=cv2.SOLVEPNP_ITERATIVE,
+            )
+        except cv2.error:
+            return 0.0, 0.0, 0.0
+
         rmat, _ = cv2.Rodrigues(rotation_vector)
-        angles, _, _, _, _, _ = cv2.decomposeProjectionMatrix(np.hstack((rmat, np.zeros((3, 1)))))
-        
-        pitch, yaw, roll = angles[0][0], angles[1][0], angles[2][0]
+        sy = math.sqrt(rmat[0, 0] * rmat[0, 0] + rmat[1, 0] * rmat[1, 0])
+
+        if sy > 1e-6:
+            pitch = math.degrees(math.atan2(rmat[2, 1], rmat[2, 2]))
+            yaw = math.degrees(math.atan2(-rmat[2, 0], sy))
+            roll = math.degrees(math.atan2(rmat[1, 0], rmat[0, 0]))
+        else:
+            pitch = math.degrees(math.atan2(-rmat[1, 2], rmat[1, 1]))
+            yaw = math.degrees(math.atan2(-rmat[2, 0], sy))
+            roll = 0.0
+
         return pitch, yaw, roll
 
     def process_frame(self, frame):

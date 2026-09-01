@@ -9,6 +9,7 @@ from urllib.parse import urlsplit
 
 import cv2
 
+from driver_monitor import NetraAIDMS
 from safety_core import DriverBehaviorMonitor, DriverBehaviorSignal
 
 
@@ -40,6 +41,7 @@ class DriverAIController:
     def __init__(
         self,
         camera_index: int = 0,
+        stream_url: Optional[str] = None,
         drowsiness_score: float = 0.82,
         distraction_score: float = 0.74,
         yawning_score: float = 0.6,
@@ -47,7 +49,9 @@ class DriverAIController:
         speed_kph: float = 82.0,
     ) -> None:
         self.camera_index = camera_index
+        self.stream_url = stream_url
         self.monitor = DriverBehaviorMonitor()
+        self.ai_tracker = NetraAIDMS()
         self.frame_store = FrameStore()
         self.last_status: Dict[str, object] = {
             "risk_level": "HIGH",
@@ -86,7 +90,7 @@ class DriverAIController:
                 ok, encoded = cv2.imencode(".jpg", frame, [int(cv2.IMWRITE_JPEG_QUALITY), 80])
                 if ok:
                     self.frame_store.set(encoded.tobytes())
-                self._update_status_from_scores()
+                self._update_status_from_live_frame(frame)
                 time.sleep(0.2)
         finally:
             cap.release()
@@ -95,6 +99,20 @@ class DriverAIController:
                 self._update_status_from_scores()
 
     def _open_camera(self):
+        if self.stream_url:
+            try:
+                cap = cv2.VideoCapture(self.stream_url)
+            except Exception:
+                return None
+            if cap.isOpened():
+                for _ in range(3):
+                    ok, frame = cap.read()
+                    if ok and frame is not None:
+                        return cap
+                    time.sleep(0.05)
+                cap.release()
+            return None
+
         candidates = build_capture_candidates(self.camera_index)
         for index in candidates:
             for backend in [cv2.CAP_DSHOW, cv2.CAP_MSMF, cv2.CAP_ANY]:
@@ -124,6 +142,33 @@ class DriverAIController:
         if ok:
             self.frame_store.set(encoded.tobytes())
 
+    def _live_signal_from_frame(self, frame) -> DriverBehaviorSignal:
+        ai_status = self.ai_tracker.process_frame(frame)
+
+        drowsiness_score = 0.9 if ai_status.get("drowsy") else 0.12
+        distraction_score = 0.88 if ai_status.get("distracted") else 0.1
+        yawning_score = 0.8 if ai_status.get("yawning") else 0.15
+        phone_usage_score = 0.05
+        speed_kph = 82.0
+
+        if ai_status.get("drowsy"):
+            drowsiness_score = 0.92
+        if ai_status.get("distracted"):
+            distraction_score = 0.9
+        if ai_status.get("yawning"):
+            yawning_score = 0.82
+
+        return DriverBehaviorSignal(
+            driver_id="drv_demo",
+            vehicle_id="veh_demo",
+            drowsiness_score=drowsiness_score,
+            distraction_score=distraction_score,
+            yawning_score=yawning_score,
+            phone_usage_score=phone_usage_score,
+            speed_kph=speed_kph,
+            timestamp_ms=int(time.time() * 1000),
+        )
+
     def _update_status_from_scores(self) -> None:
         signal = DriverBehaviorSignal(
             driver_id="drv_demo",
@@ -135,6 +180,16 @@ class DriverAIController:
             speed_kph=self.speed_kph,
             timestamp_ms=int(time.time() * 1000),
         )
+        assessment = self.monitor.evaluate(signal=signal, now_ms=int(time.time() * 1000))
+        self.last_status = {
+            "risk_level": assessment.risk_level.value,
+            "reasons": assessment.reasons,
+            "confidence": assessment.confidence,
+            "recommended_transmission": assessment.recommended_transmission,
+        }
+
+    def _update_status_from_live_frame(self, frame) -> None:
+        signal = self._live_signal_from_frame(frame)
         assessment = self.monitor.evaluate(signal=signal, now_ms=int(time.time() * 1000))
         self.last_status = {
             "risk_level": assessment.risk_level.value,
@@ -467,6 +522,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--host", default="0.0.0.0")
     parser.add_argument("--port", type=int, default=9001)
     parser.add_argument("--camera-index", type=int, default=0)
+    parser.add_argument("--stream-url", default="", help="Remote MJPEG/HTTP stream URL such as http://host:9000/feed")
     parser.add_argument("--drowsiness-score", type=float, default=0.82)
     parser.add_argument("--distraction-score", type=float, default=0.74)
     parser.add_argument("--yawning-score", type=float, default=0.6)
@@ -479,12 +535,15 @@ def main() -> int:
     args = build_parser().parse_args()
     controller = DriverAIController(
         camera_index=args.camera_index,
+        stream_url=args.stream_url or None,
         drowsiness_score=args.drowsiness_score,
         distraction_score=args.distraction_score,
         yawning_score=args.yawning_score,
         phone_usage_score=args.phone_usage_score,
         speed_kph=args.speed_kph,
     )
+    if args.stream_url:
+        print(f"Using remote camera stream: {args.stream_url}")
     controller.start()
 
     server = DriverDashboardServer((args.host, args.port), DriverDashboardHandler, controller)
