@@ -1,9 +1,71 @@
 import math
 import time
+from typing import Dict, Optional
 
 import cv2
 import mediapipe as mp
 import numpy as np
+
+
+class EdgeAIClassifier:
+    """Lightweight edge-AI decision layer for local driver-state inference."""
+
+    def __init__(self) -> None:
+        self.drowsiness_weight = 0.45
+        self.distraction_weight = 0.35
+        self.yawning_weight = 0.15
+        self.phone_usage_weight = 0.20
+
+    def classify(
+        self,
+        drowsy: bool = False,
+        distracted: bool = False,
+        yawning: bool = False,
+        phone_usage: bool = False,
+        speed_kph: float = 0.0,
+    ) -> Dict[str, object]:
+        risk_score = 0.0
+
+        if drowsy:
+            risk_score += self.drowsiness_weight
+        if distracted:
+            risk_score += self.distraction_weight
+        if yawning:
+            risk_score += self.yawning_weight
+        if phone_usage:
+            risk_score += self.phone_usage_weight
+        if speed_kph >= 100.0:
+            risk_score += 0.15
+
+        if risk_score >= 0.8:
+            risk_level = "HIGH"
+        elif risk_score >= 0.45:
+            risk_level = "MODERATE"
+        else:
+            risk_level = "NORMAL"
+
+        reasons: list[str] = []
+        if drowsy:
+            reasons.append("drowsiness_high")
+        if distracted:
+            reasons.append("distraction_high")
+        if yawning:
+            reasons.append("yawning_detected")
+        if phone_usage:
+            reasons.append("phone_usage_detected")
+        if speed_kph >= 100.0:
+            reasons.append("speeding_detected")
+        if not reasons:
+            reasons.append("behavior_normal")
+
+        confidence = min(0.99, 0.6 + (risk_score * 0.5))
+        return {
+            "risk_level": risk_level,
+            "risk_score": round(risk_score, 3),
+            "confidence": round(confidence, 3),
+            "reasons": reasons,
+        }
+
 
 class DrishtiAIDMS:
     def __init__(self):
@@ -11,24 +73,65 @@ class DrishtiAIDMS:
         self.mp_face_mesh = mp.solutions.face_mesh
         self.face_mesh = self.mp_face_mesh.FaceMesh(
             max_num_faces=1,
-            refine_landmarks=True, # Required for high-accuracy iris tracking
+            refine_landmarks=True,
             min_detection_confidence=0.5,
-            min_tracking_confidence=0.5
+            min_tracking_confidence=0.5,
         )
-        
+
         # Hardcoded Indices for MediaPipe Face Mesh landmarks
         self.LEFT_EYE = [362, 385, 387, 263, 373, 380]
         self.RIGHT_EYE = [33, 160, 158, 133, 153, 144]
         self.MOUTH = [78, 81, 13, 311, 308, 402, 14, 178]
-        
-        # Safety Thresholds
-        self.EAR_THRESHOLD = 0.22   # Below this = Eye Closed
-        self.MAR_THRESHOLD = 0.60   # Above this = Yawning
-        self.YAW_THRESHOLD = 25     # Looking too far left/right (Degrees)
-        
-        # Frame counters for temporal persistence (avoiding false alarms during rapid blinks)
+
+        # More realistic fatigue thresholds for driver monitoring.
+        self.EAR_THRESHOLD = 0.24
+        self.EAR_CRITICAL_THRESHOLD = 0.18
+        self.MAR_THRESHOLD = 0.58
+        self.YAW_THRESHOLD = 22.0
+
+        # Temporal persistence counters to reduce false positives from brief blinks or glance events.
         self.EYE_CLOSED_COUNTER = 0
-        self.DROWSINESS_FRAME_LIMIT = 20 # ~1-2 seconds of continuous closure depending on FPS
+        self.DROWSINESS_FRAME_LIMIT = 18
+        self.YAWN_COUNTER = 0
+        self.YAWN_FRAME_LIMIT = 8
+        self.DISTRACTION_COUNTER = 0
+        self.DISTRACTION_FRAME_LIMIT = 24
+        self.FATIGUE_SCORE = 0.0
+
+    def _draw_tracking_overlay(self, frame, landmarks, status):
+        height, width = frame.shape[:2]
+        points = np.array(
+            [(int(point.x * width), int(point.y * height)) for point in landmarks],
+            dtype=np.int32,
+        )
+        x_min, y_min = np.min(points, axis=0)
+        x_max, y_max = np.max(points, axis=0)
+        cv2.rectangle(frame, (x_min, y_min), (x_max, y_max), (40, 220, 180), 2)
+
+        for connection in self.mp_face_mesh.FACEMESH_TESSELATION:
+            start, end = connection
+            cv2.line(frame, tuple(points[start]), tuple(points[end]), (80, 130, 80), 1)
+
+        for eye_indices in (self.LEFT_EYE, self.RIGHT_EYE):
+            eye_points = points[eye_indices].reshape((-1, 1, 2))
+            cv2.polylines(frame, [eye_points], True, (0, 255, 255), 2)
+
+        label = "FACE TRACKED"
+        if status["drowsy"]:
+            label = "DROWSINESS ALERT"
+        elif status["yawning"]:
+            label = "YAWN DETECTED"
+        elif status["distracted"]:
+            label = "DISTRACTION ALERT"
+        cv2.putText(
+            frame,
+            label,
+            (max(10, x_min), max(30, y_min - 10)),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            0.7,
+            (0, 220, 255) if label == "FACE TRACKED" else (0, 80, 255),
+            2,
+        )
 
     def calculate_ear(self, landmarks, eye_indices):
         # Coordinates of vertical and horizontal landmarks around the eyelids
@@ -107,58 +210,110 @@ class DrishtiAIDMS:
         h, w, _ = frame.shape
         rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
         results = self.face_mesh.process(rgb_frame)
-        
-        status = {"drowsy": False, "distracted": False, "yawning": False}
-        
+
+        status = {
+            "drowsy": False,
+            "distracted": False,
+            "yawning": False,
+            "fatigue_score": 0.0,
+            "ear": 0.0,
+            "mar": 0.0,
+            "yaw": 0.0,
+        }
+
         if results.multi_face_landmarks:
             landmarks = results.multi_face_landmarks[0].landmark
-            
-            # 1. Check Drowsiness (EAR)
+
             left_ear = self.calculate_ear(landmarks, self.LEFT_EYE)
             right_ear = self.calculate_ear(landmarks, self.RIGHT_EYE)
             avg_ear = (left_ear + right_ear) / 2.0
-            
-            if avg_ear < self.EAR_THRESHOLD:
+            status["ear"] = avg_ear
+
+            if avg_ear < self.EAR_CRITICAL_THRESHOLD:
+                self.EYE_CLOSED_COUNTER += 2
+            elif avg_ear < self.EAR_THRESHOLD:
                 self.EYE_CLOSED_COUNTER += 1
-                if self.EYE_CLOSED_COUNTER >= self.DROWSINESS_FRAME_LIMIT:
-                    status["drowsy"] = True
             else:
-                self.EYE_CLOSED_COUNTER = 0
-                
-            # 2. Check Yawning (MAR)
+                self.EYE_CLOSED_COUNTER = max(0, self.EYE_CLOSED_COUNTER - 2)
+
+            if self.EYE_CLOSED_COUNTER >= self.DROWSINESS_FRAME_LIMIT:
+                status["drowsy"] = True
+
             mar = self.calculate_mar(landmarks)
+            status["mar"] = mar
             if mar > self.MAR_THRESHOLD:
+                self.YAWN_COUNTER += 1
+            else:
+                self.YAWN_COUNTER = max(0, self.YAWN_COUNTER - 1)
+
+            if self.YAWN_COUNTER >= self.YAWN_FRAME_LIMIT:
                 status["yawning"] = True
-                
-            # 3. Check Distraction (Head Yaw angle)
+
             _, yaw, _ = self.estimate_head_pose(landmarks, w, h)
+            status["yaw"] = abs(yaw)
             if abs(yaw) > self.YAW_THRESHOLD:
+                self.DISTRACTION_COUNTER += 1
+            else:
+                self.DISTRACTION_COUNTER = max(0, self.DISTRACTION_COUNTER - 2)
+
+            if self.DISTRACTION_COUNTER >= self.DISTRACTION_FRAME_LIMIT:
                 status["distracted"] = True
-                
+
+            fatigue_score = 0.0
+            if status["drowsy"]:
+                fatigue_score += 0.45
+            if status["yawning"]:
+                fatigue_score += 0.2
+            if status["distracted"]:
+                fatigue_score += 0.25
+            if avg_ear < self.EAR_THRESHOLD:
+                fatigue_score += 0.15
+            if mar > self.MAR_THRESHOLD:
+                fatigue_score += 0.1
+            status["fatigue_score"] = min(1.0, fatigue_score)
+
+            self._draw_tracking_overlay(frame, landmarks, status)
+
+        edge_result = EdgeAIClassifier().classify(
+            drowsy=status["drowsy"],
+            distracted=status["distracted"],
+            yawning=status["yawning"],
+            phone_usage=False,
+            speed_kph=0.0,
+        )
+        status["edge_ai"] = edge_result
         return status
 
 # Local testing loop (Simulating Edge Cam Execution)
 if __name__ == "__main__":
-    cap = cv2.VideoCapture(0)
+    import os
+
+    stream_source = os.environ.get("DRISHTI_STREAM_URL")
+    if stream_source is None:
+        stream_source = "0"
+
+    cap = cv2.VideoCapture(stream_source)
     dms_system = DrishtiAIDMS()
-    
-    print("[INFO] DrishtiAI DMS Core Module Initialized. Press 'q' to exit.")
+
+    print(f"[INFO] DrishtiAI DMS Core Module Initialized. Using source: {stream_source}")
     while cap.isOpened():
         ret, frame = cap.read()
-        if not ret: break
-        
+        if not ret:
+            print("[ERROR] Lost connection to the configured stream source.")
+            break
+
         alerts = dms_system.process_frame(frame)
-        
-        # Display overlay indicators on the video feed
+
         if alerts["drowsy"]:
             cv2.putText(frame, "!!! DROWSINESS CRITICAL !!!", (30, 60), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 3)
         elif alerts["distracted"]:
             cv2.putText(frame, "WARNING: DISTRACTED DRIVING", (30, 100), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 165, 255), 2)
         elif alerts["yawning"]:
             cv2.putText(frame, "ALERT: Yawn Detected (Fatigue)", (30, 140), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 255), 2)
-            
+
         cv2.imshow("DrishtiAI - Edge DMS Processor Mock", frame)
-        if cv2.waitKey(1) & 0xFF == ord('q'): break
-        
+        if cv2.waitKey(1) & 0xFF == ord('q'):
+            break
+
     cap.release()
     cv2.destroyAllWindows()

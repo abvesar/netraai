@@ -9,6 +9,7 @@ from safety_core import (
     SafetyPolicyConfig,
     SensorReading,
 )
+from driver_monitor import EdgeAIClassifier
 from driver_monitor_dashboard import build_capture_candidates
 
 
@@ -64,6 +65,12 @@ class SafetyCoreTests(unittest.TestCase):
         self.assertEqual(candidates[0], 1)
         self.assertIn(0, candidates)
         self.assertIn(1, candidates)
+
+    def test_edge_ai_classifier_marks_high_risk_when_driver_is_drowsy_and_distracted(self) -> None:
+        result = EdgeAIClassifier().classify(drowsy=True, distracted=True, yawning=True)
+        self.assertEqual(result["risk_level"], "HIGH")
+        self.assertGreaterEqual(result["risk_score"], 0.8)
+        self.assertGreater(result["confidence"], 0.5)
 
 
 if __name__ == "__main__":
