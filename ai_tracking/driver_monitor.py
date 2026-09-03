@@ -97,6 +97,30 @@ class DrishtiAIDMS:
         self.DISTRACTION_COUNTER = 0
         self.DISTRACTION_FRAME_LIMIT = 24
         self.FATIGUE_SCORE = 0.0
+        self.ENROLLED_DRIVER_ID = "roh_01"
+        self.FACE_MATCH_THRESHOLD = 0.12
+        self._enrolled_face = None
+
+    def _face_embedding(self, landmarks):
+        points = np.array([(point.x, point.y) for point in landmarks], dtype=np.float32)
+        points -= np.mean(points, axis=0)
+        scale = np.max(np.ptp(points, axis=0))
+        if scale <= 1e-6:
+            return None
+        return (points / scale).reshape(-1)
+
+    def _recognize_face(self, landmarks):
+        embedding = self._face_embedding(landmarks)
+        if embedding is None:
+            return False, "NO FACE DETECTED"
+        if self._enrolled_face is None:
+            self._enrolled_face = embedding
+            return True, self.ENROLLED_DRIVER_ID
+
+        distance = float(np.mean(np.abs(embedding - self._enrolled_face)))
+        if distance <= self.FACE_MATCH_THRESHOLD:
+            return True, self.ENROLLED_DRIVER_ID
+        return False, "DRIVER NOT RECOGNIZED"
 
     def _draw_tracking_overlay(self, frame, landmarks, status):
         height, width = frame.shape[:2]
@@ -215,6 +239,8 @@ class DrishtiAIDMS:
             "drowsy": False,
             "distracted": False,
             "yawning": False,
+            "face_recognized": False,
+            "driver_id": "DRIVER NOT RECOGNIZED",
             "fatigue_score": 0.0,
             "ear": 0.0,
             "mar": 0.0,
@@ -223,6 +249,7 @@ class DrishtiAIDMS:
 
         if results.multi_face_landmarks:
             landmarks = results.multi_face_landmarks[0].landmark
+            status["face_recognized"], status["driver_id"] = self._recognize_face(landmarks)
 
             left_ear = self.calculate_ear(landmarks, self.LEFT_EYE)
             right_ear = self.calculate_ear(landmarks, self.RIGHT_EYE)

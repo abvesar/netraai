@@ -16,19 +16,18 @@ This project is a lightweight monitoring prototype designed for experimentation 
 
 The current design follows an AI-first monitoring model:
 
-- Application/Monitoring Layer: [safety_core.py](safety_core.py), [fleet_gatekeeper_hub.py](fleet_gatekeeper_hub.py)
+- Application/Monitoring Layer: [ai_tracking/](ai_tracking/), [fleet_gatekeeper_hub.py](fleet_gatekeeper_hub.py)
 - Transport Layer: cloud, satellite, and hybrid adapters in [fleet_gatekeeper_hub.py](fleet_gatekeeper_hub.py)
 - Audit Layer: JSONL event logging via the audit adapter in [fleet_gatekeeper_hub.py](fleet_gatekeeper_hub.py)
-- Vision Layer: [driver_monitor.py](driver_monitor.py) for MediaPipe-based face analysis
-- Dashboard Layer: [driver_monitor_dashboard.py](driver_monitor_dashboard.py) for the browser UI and live status feed
+- Vision and dashboard layers: [ai_tracking/](ai_tracking/) for MediaPipe-based face analysis, risk scoring, and the live status feed
 - Remote Demo Layer: [demo_stream_server.py](demo_stream_server.py) and [demo_remote_camera_sender.py](demo_remote_camera_sender.py)
 
 ## Core files
 
-- [safety_core.py](safety_core.py) — risk scoring and monitoring logic for drowsiness, distraction, yawning, phone use, and speeding
+- [ai_tracking/safety_core.py](ai_tracking/safety_core.py) — risk scoring and monitoring logic for drowsiness, distraction, yawning, phone use, and speeding
 - [fleet_gatekeeper_hub.py](fleet_gatekeeper_hub.py) — orchestration layer, transmission adapters, and CLI entry point
-- [driver_monitor.py](driver_monitor.py) — MediaPipe-based face monitoring prototype for live driver-state detection
-- [driver_monitor_dashboard.py](driver_monitor_dashboard.py) — dashboard backend, status API, and frame-processing loop
+- [ai_tracking/driver_monitor.py](ai_tracking/driver_monitor.py) — MediaPipe-based face monitoring prototype for live driver-state detection
+- [ai_tracking/driver_monitor_dashboard.py](ai_tracking/driver_monitor_dashboard.py) — dashboard backend, status API, and frame-processing loop
 - [demo_stream_server.py](demo_stream_server.py) — sample MJPEG stream server that serves uploaded frames from a remote camera
 - [demo_remote_camera_sender.py](demo_remote_camera_sender.py) — sample sender that uploads JPEG frames from a remote device to the demo stream server
 - [webcam_camera_test.py](webcam_camera_test.py) — webcam/network validation utility
@@ -72,6 +71,7 @@ Then open:
 - http://localhost:5000/
 
 This Flask app uses the local OpenCV camera, runs the AI analysis on each frame, and overlays live driver-status hints directly on the stream.
+The first face detected after startup is enrolled for that session as `roh_01`; a different face is shown as `DRIVER NOT RECOGNIZED`.
 
 ### 1) Use the project virtual environment
 
@@ -106,7 +106,7 @@ Then send frames from another device or process:
 
 ```powershell
 cd "C:\Users\ROHIT\OneDrive\Desktop\DRISHTI AI"
-& ".venv\Scripts\python.exe" driver_monitor_dashboard.py --host 0.0.0.0 --port 9001 --stream-url http://127.0.0.1:9000/feed
+& ".venv\Scripts\python.exe" -m ai_tracking.driver_monitor_dashboard --host 0.0.0.0 --port 9001 --stream-url http://127.0.0.1:9000/feed
 ```
 
 Open the browser at:

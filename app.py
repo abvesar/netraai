@@ -1,6 +1,6 @@
 from flask import Flask, Response, render_template_string
 import cv2
-from driver_monitor import DrishtiAIDMS
+from ai_tracking.driver_monitor import DrishtiAIDMS
 
 app = Flask(__name__)
 dms_system = DrishtiAIDMS()
@@ -20,6 +20,10 @@ def generate_frames():
             
             # 2. Draw the visual Edge AI feedback overlays directly on the frame
             # This visually proves to the user/investor that the AI is working in real time!
+            recognition_text = alerts["driver_id"]
+            recognition_color = (0, 220, 80) if alerts["face_recognized"] else (0, 80, 255)
+            cv2.putText(frame, f"DRIVER ID: {recognition_text}", (30, 90),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.7, recognition_color, 2)
             if alerts["drowsy"]:
                 cv2.putText(frame, "!!! DROWSINESS CRITICAL !!!", (30, 50), 
                             cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 3)

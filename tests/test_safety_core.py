@@ -1,6 +1,6 @@
 import unittest
 
-from safety_core import (
+from ai_tracking.safety_core import (
     DriverBehaviorSignal,
     DriverBehaviorMonitor,
     DriverRiskLevel,
@@ -9,8 +9,8 @@ from safety_core import (
     SafetyPolicyConfig,
     SensorReading,
 )
-from driver_monitor import EdgeAIClassifier
-from driver_monitor_dashboard import build_capture_candidates
+from ai_tracking.driver_monitor import EdgeAIClassifier
+from ai_tracking.driver_monitor_dashboard import build_capture_candidates
 
 
 class SafetyCoreTests(unittest.TestCase):

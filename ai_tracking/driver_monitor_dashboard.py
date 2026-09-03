@@ -9,8 +9,8 @@ from urllib.parse import urlsplit
 
 import cv2
 
-from driver_monitor import DrishtiAIDMS
-from safety_core import DriverBehaviorMonitor, DriverBehaviorSignal
+from ai_tracking.driver_monitor import DrishtiAIDMS
+from ai_tracking.safety_core import DriverBehaviorMonitor, DriverBehaviorSignal
 
 
 def build_capture_candidates(preferred_index: int = 0) -> List[int]:
@@ -58,6 +58,8 @@ class DriverAIController:
             "reasons": ["drowsiness_high", "distraction_high"],
             "confidence": 0.91,
             "recommended_transmission": "satellite",
+            "face_recognized": False,
+            "driver_id": "DRIVER NOT RECOGNIZED",
         }
         self._stop_event = threading.Event()
         self._loop_thread = threading.Thread(target=self._camera_loop, daemon=True)
@@ -67,6 +69,8 @@ class DriverAIController:
         self.yawning_score = yawning_score
         self.phone_usage_score = phone_usage_score
         self.speed_kph = speed_kph
+        self.face_recognized = False
+        self.driver_id = "DRIVER NOT RECOGNIZED"
 
     def start(self) -> None:
         self._loop_thread.start()
@@ -144,6 +148,8 @@ class DriverAIController:
 
     def _live_signal_from_frame(self, frame) -> DriverBehaviorSignal:
         ai_status = self.ai_tracker.process_frame(frame)
+        self.face_recognized = bool(ai_status["face_recognized"])
+        self.driver_id = str(ai_status["driver_id"])
 
         drowsiness_score = 0.9 if ai_status.get("drowsy") else 0.12
         distraction_score = 0.88 if ai_status.get("distracted") else 0.1
@@ -186,6 +192,8 @@ class DriverAIController:
             "reasons": assessment.reasons,
             "confidence": assessment.confidence,
             "recommended_transmission": assessment.recommended_transmission,
+            "face_recognized": False,
+            "driver_id": "DRIVER NOT RECOGNIZED",
         }
 
     def _update_status_from_live_frame(self, frame) -> None:
@@ -196,6 +204,8 @@ class DriverAIController:
             "reasons": assessment.reasons,
             "confidence": assessment.confidence,
             "recommended_transmission": assessment.recommended_transmission,
+            "face_recognized": self.face_recognized,
+            "driver_id": self.driver_id,
         }
 
     def get_status(self) -> Dict[str, object]:
@@ -424,7 +434,8 @@ class DriverDashboardHandler(BaseHTTPRequestHandler):
 
                 <div class="topbar">
                     <div class="driver-meta">
-                        <div class="meta-pill">Driver ID: <strong id="driverId">drv_demo</strong></div>
+                        <div class="meta-pill">Driver ID: <strong id="driverId">DRIVER NOT RECOGNIZED</strong></div>
+                        <div class="meta-pill">Face status: <strong id="faceStatus">Checking</strong></div>
                         <div class="meta-pill">Vehicle ID: <strong id="vehicleId">veh_demo</strong></div>
                         <div class="meta-pill">Live time: <strong id="clock">--:--:--</strong></div>
                     </div>
@@ -463,7 +474,8 @@ class DriverDashboardHandler(BaseHTTPRequestHandler):
                             risk === 'MODERATE' ? 'risk-moderate' : 'risk-normal'
                         );
 
-                        document.getElementById('driverId').textContent = 'drv_demo';
+                        document.getElementById('driverId').textContent = data.driver_id || 'DRIVER NOT RECOGNIZED';
+                        document.getElementById('faceStatus').textContent = data.face_recognized ? 'Recognized' : 'Not recognized';
                         document.getElementById('vehicleId').textContent = 'veh_demo';
                         document.getElementById('riskLevel').textContent = risk;
                         document.getElementById('confidence').textContent = (data.confidence ?? 0).toString();

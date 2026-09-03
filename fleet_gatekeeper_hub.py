@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict, Protocol
 
-from safety_core import (
+from ai_tracking.safety_core import (
     DriverBehaviorAssessment,
     DriverBehaviorMonitor,
     DriverBehaviorSignal,
@@ -236,7 +236,7 @@ if __name__ == "__main__":
 # ---------------------------------------------------------------------------
 # Reference sketch kept for design context only; not executed at import time.
 # ---------------------------------------------------------------------------
-# from driver_monitor import DrishtiAIDMS
+# from ai_tracking.driver_monitor import DrishtiAIDMS
 # import cv2
 #
 # dms = DrishtiAIDMS()
