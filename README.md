@@ -19,14 +19,14 @@ The current design follows an AI-first monitoring model:
 - Application/Monitoring Layer: [ai_tracking/](ai_tracking/), [fleet_gatekeeper_hub.py](fleet_gatekeeper_hub.py)
 - Transport Layer: cloud, satellite, and hybrid adapters in [fleet_gatekeeper_hub.py](fleet_gatekeeper_hub.py)
 - Audit Layer: JSONL event logging via the audit adapter in [fleet_gatekeeper_hub.py](fleet_gatekeeper_hub.py)
-- Vision and dashboard layers: [ai_tracking/](ai_tracking/) for MediaPipe-based face analysis, risk scoring, and the live status feed
+- Vision and dashboard layers: [ai_tracking/](ai_tracking/) for MediaPipe Face Mesh analysis, risk scoring, and the live status feed
 - Remote Demo Layer: [demo_stream_server.py](demo_stream_server.py) and [demo_remote_camera_sender.py](demo_remote_camera_sender.py)
 
 ## Core files
 
 - [ai_tracking/safety_core.py](ai_tracking/safety_core.py) — risk scoring and monitoring logic for drowsiness, distraction, yawning, phone use, and speeding
 - [fleet_gatekeeper_hub.py](fleet_gatekeeper_hub.py) — orchestration layer, transmission adapters, and CLI entry point
-- [ai_tracking/driver_monitor.py](ai_tracking/driver_monitor.py) — MediaPipe-based face monitoring prototype for live driver-state detection
+- [ai_tracking/driver_monitor.py](ai_tracking/driver_monitor.py) — MediaPipe Face Mesh monitoring prototype for live driver-state detection
 - [ai_tracking/driver_monitor_dashboard.py](ai_tracking/driver_monitor_dashboard.py) — dashboard backend, status API, and frame-processing loop
 - [demo_stream_server.py](demo_stream_server.py) — sample MJPEG stream server that serves uploaded frames from a remote camera
 - [demo_remote_camera_sender.py](demo_remote_camera_sender.py) — sample sender that uploads JPEG frames from a remote device to the demo stream server
@@ -62,7 +62,7 @@ This is the simplest way to view the live driver-monitoring dashboard from your 
 From the project root:
 
 ```powershell
-cd "C:\Users\ROHIT\OneDrive\Desktop\NETRA AI"
+cd "C:\Users\ROHIT\OneDrive\Desktop\DRISHTI AI"
 & ".venv\Scripts\python.exe" app.py
 ```
 
@@ -72,6 +72,8 @@ Then open:
 
 This Flask app uses the local OpenCV camera, runs the AI analysis on each frame, and overlays live driver-status hints directly on the stream.
 The first face detected after startup is enrolled for that session as `roh_01`; a different face is shown as `DRIVER NOT RECOGNIZED`.
+
+Face tracking uses MediaPipe Face Mesh with 468 dense facial landmarks. The monitor derives eye-aspect ratio, mouth-aspect ratio, head pose, bounding-box overlay, drowsiness, yawning, and distraction alerts directly from those landmarks.
 
 ### 1) Use the project virtual environment
 

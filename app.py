@@ -1,54 +1,153 @@
+import os
+import time
+
 from flask import Flask, Response, render_template_string
 import cv2
+import numpy as np
 from ai_tracking.driver_monitor import DrishtiAIDMS
 
 app = Flask(__name__)
 dms_system = DrishtiAIDMS()
 
-# Initialize Camera (Use 0 for local webcam, or your phone IP URL string)
-camera = cv2.VideoCapture(0) 
+camera_source = os.environ.get("DRISHTI_CAMERA_SOURCE", "0")
+if camera_source.isdigit():
+    camera_source = int(camera_source)
+camera = None
+pipeline_error = None
+
+
+def _open_camera():
+    global camera
+    if camera is not None and camera.isOpened():
+        return camera
+
+    if isinstance(camera_source, int):
+        camera = cv2.VideoCapture(camera_source, cv2.CAP_DSHOW)
+    else:
+        camera = cv2.VideoCapture(camera_source)
+    if not camera.isOpened():
+        camera.release()
+        camera = None
+    return camera
+
+
+def _placeholder_frame():
+    frame = np.zeros((480, 640, 3), dtype=np.uint8)
+    frame[:] = (18, 20, 30)
+    cv2.putText(frame, "DRISHTI AI CAMERA UNAVAILABLE", (75, 210), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0, 180, 255), 2)
+    cv2.putText(frame, "Check webcam access or DRISHTI_CAMERA_SOURCE", (42, 255), cv2.FONT_HERSHEY_SIMPLEX, 0.55, (220, 220, 220), 1)
+    return frame
+
+
+def _is_black_frame(frame) -> bool:
+    return float(frame.mean()) < 3.0 and int(frame.max()) < 32
 
 
 def generate_frames():
+    global camera, pipeline_error
     while True:
-        success, frame = camera.read()
-        if not success:
-            break
+        active_camera = _open_camera()
+        if active_camera is None:
+            frame = _placeholder_frame()
+            time.sleep(0.5)
         else:
-            # 1. Run the image matrix through your Edge AI pipeline
-            alerts = dms_system.process_frame(frame)
-            
-            # 2. Draw the visual Edge AI feedback overlays directly on the frame
-            # This visually proves to the user/investor that the AI is working in real time!
-            recognition_text = alerts["driver_id"]
-            recognition_color = (0, 220, 80) if alerts["face_recognized"] else (0, 80, 255)
-            cv2.putText(frame, f"DRIVER ID: {recognition_text}", (30, 90),
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.7, recognition_color, 2)
-            if alerts["drowsy"]:
-                cv2.putText(frame, "!!! DROWSINESS CRITICAL !!!", (30, 50), 
-                            cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 3)
-                # Draw visual bounding box hints over eyes or face to look like enterprise tech
-                cv2.rectangle(frame, (10, 10), (frame.shape[1]-10, frame.shape[0]-10), (0,0,255), 5)
-            elif alerts["distracted"]:
-                cv2.putText(frame, "WARNING: DISTRACTED DRIVING", (30, 50), 
-                            cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 165, 255), 2)
-            elif alerts["yawning"]:
-                cv2.putText(frame, "ALERT: Yawn Detected", (30, 50), 
-                            cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 255), 2)
+            success, frame = active_camera.read()
+            if not success:
+                active_camera.release()
+                camera = None
+                frame = _placeholder_frame()
+                time.sleep(0.5)
             else:
-                # Show an "All Clear" status to look like an operating system monitor
-                cv2.putText(frame, "SYSTEM ACTIVE: DRIVER ALERT", (30, 50), 
-                            cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
+                alerts = None
+                if _is_black_frame(frame):
+                    alerts = {
+                        "drowsy": False,
+                        "distracted": False,
+                        "face_recognized": False,
+                        "driver_id": "CAMERA FRAME BLACK",
+                        "drowsiness_confidence": 0.0,
+                    }
+                    cv2.putText(
+                        frame,
+                        "CAMERA INPUT IS BLACK: OPEN SHUTTER / CHECK PERMISSIONS",
+                        (25, 135),
+                        cv2.FONT_HERSHEY_SIMPLEX,
+                        0.5,
+                        (0, 180, 255),
+                        2,
+                    )
+                elif pipeline_error is None:
+                    try:
+                        alerts = dms_system.process_frame(frame)
+                    except (FileNotFoundError, ImportError, RuntimeError) as exc:
+                        pipeline_error = str(exc)
 
-            # 3. Compress the processed OpenCV frame into a JPEG memory buffer
-            ret, buffer = cv2.imencode('.jpg', frame, [cv2.IMWRITE_JPEG_QUALITY, 70])
-            if not ret:
-                continue
-            frame_bytes = buffer.tobytes()
-            
-            # 4. Yield the frame in an MJPEG format sequence block
-            yield (b'--frame\r\n'
-                   b'Content-Type: image/jpeg\r\n\r\n' + frame_bytes + b'\r\n')
+        if active_camera is None or not success or pipeline_error is not None:
+            alerts = {
+                "drowsy": False,
+                "distracted": False,
+                "face_recognized": False,
+                "driver_id": "CAMERA UNAVAILABLE" if active_camera is None else "AI MODEL UNAVAILABLE",
+                "drowsiness_confidence": 0.0,
+                "face_detected": False,
+            }
+            if pipeline_error is not None and active_camera is not None and success:
+                cv2.putText(
+                    frame,
+                    "AI MODEL UNAVAILABLE: add yolov8n-face.pt",
+                    (30, 130),
+                    cv2.FONT_HERSHEY_SIMPLEX,
+                    0.55,
+                    (0, 180, 255),
+                    2,
+                )
+        if alerts["drowsy"]:
+            cv2.rectangle(frame, (0, 0), (frame.shape[1] - 1, frame.shape[0] - 1), (0, 0, 255), 8)
+            status_text = "CRITICAL: DROWSY DETECTED"
+            status_color = (0, 0, 255)
+        elif alerts["distracted"]:
+            status_text = "WARNING: DISTRACTED DRIVING"
+            status_color = (0, 165, 255)
+        elif not alerts.get("face_detected", False):
+            status_text = "NO FACE DETECTED"
+            status_color = (0, 180, 255)
+        else:
+            status_text = "MEDIAPIPE FACE MESH ACTIVE"
+            status_color = (0, 255, 0)
+
+        cv2.putText(frame, status_text, (30, 50), cv2.FONT_HERSHEY_SIMPLEX, 0.8, status_color, 2)
+        recognition_text = alerts["driver_id"]
+        recognition_color = (0, 220, 80) if alerts["face_recognized"] else (0, 80, 255)
+        cv2.putText(
+            frame,
+            f"DRIVER ID: {recognition_text}",
+            (30, 90),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            0.7,
+            recognition_color,
+            2,
+        )
+        device_name = "MEDIAPIPE CPU"
+        cv2.putText(
+            frame,
+            f"Device Engine: {device_name}",
+            (30, frame.shape[0] - 20),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            0.5,
+            (255, 255, 255),
+            1,
+        )
+
+        ret, buffer = cv2.imencode(".jpg", frame, [cv2.IMWRITE_JPEG_QUALITY, 70])
+        if not ret:
+            continue
+        frame_bytes = buffer.tobytes()
+        yield (
+            b"--frame\r\n"
+            b"Content-Type: image/jpeg\r\n\r\n"
+            + frame_bytes
+            + b"\r\n"
+        )
 
 @app.route('/video_feed')
 def video_feed():
@@ -102,4 +201,5 @@ def index():
 
 if __name__ == '__main__':
     # Start the server on port 5000
-    app.run(host='0.0.0.0', port=5000, debug=False)
+        port = int(os.environ.get("DRISHTI_PORT", "5000"))
+        app.run(host="0.0.0.0", port=port, debug=False)

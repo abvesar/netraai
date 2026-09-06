@@ -1,3 +1,6 @@
+.pytest_cache/
+debug_camera.jpg
+yolov8n-face.pt
 __pycache__/
 *.pyc
 *.pyo
