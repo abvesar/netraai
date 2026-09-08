@@ -154,7 +154,7 @@ class DriverAIController:
         drowsiness_score = 0.9 if ai_status.get("drowsy") else 0.12
         distraction_score = 0.88 if ai_status.get("distracted") else 0.1
         yawning_score = 0.8 if ai_status.get("yawning") else 0.15
-        phone_usage_score = 0.05
+        phone_usage_score = float(ai_status.get("phone_usage_score", 0.05))
         speed_kph = 82.0
 
         if ai_status.get("drowsy"):

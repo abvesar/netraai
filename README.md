@@ -75,6 +75,8 @@ The first face detected after startup is enrolled for that session as `roh_01`; 
 
 Face tracking uses MediaPipe Face Mesh with 468 dense facial landmarks. The monitor derives eye-aspect ratio, mouth-aspect ratio, head pose, bounding-box overlay, drowsiness, yawning, and distraction alerts directly from those landmarks.
 
+Phone-use detection is optional and requires a MediaPipe Tasks-compatible TFLite object detector at `models/phone_detector.tflite`, or a path supplied through `DRISHTI_PHONE_MODEL`. The detector must expose a `cell phone` or `phone` label. A phone alert is confirmed only after the phone is detected near a MediaPipe hand while the driver's head is angled down for 12 consecutive frames.
+
 ### 1) Use the project virtual environment
 
 From the project root:
