@@ -102,8 +102,9 @@ def generate_frames():
                     2,
                 )
         if alerts["drowsy"]:
-            cv2.rectangle(frame, (0, 0), (frame.shape[1] - 1, frame.shape[0] - 1), (0, 0, 255), 8)
-            status_text = "CRITICAL: DROWSY DETECTED"
+            if int(time.monotonic() * 4) % 2 == 0:
+                cv2.rectangle(frame, (0, 0), (frame.shape[1] - 1, frame.shape[0] - 1), (0, 0, 255), 8)
+            status_text = "CRITICAL: DROWSINESS DETECTED"
             status_color = (0, 0, 255)
         elif alerts["distracted"]:
             status_text = "WARNING: DISTRACTED DRIVING"

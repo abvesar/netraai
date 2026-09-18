@@ -57,7 +57,8 @@ class DrishtiAIDMS:
         self.MAR_THRESHOLD = 0.58
         self.YAW_THRESHOLD = 22.0
         self.EYE_CLOSED_COUNTER = 0
-        self.DROWSINESS_FRAME_LIMIT = 18
+        self.DROWSINESS_FRAME_LIMIT = 8
+        self._eyes_closed_since: float | None = None
         self.YAWN_COUNTER = 0
         self.YAWN_FRAME_LIMIT = 8
         self.DISTRACTION_COUNTER = 0
@@ -215,8 +216,15 @@ class DrishtiAIDMS:
             status["face_recognized"], status["driver_id"] = self._recognize_face(landmarks)
             avg_ear = (self.calculate_ear(landmarks, self.LEFT_EYE) + self.calculate_ear(landmarks, self.RIGHT_EYE)) / 2.0
             status["ear"] = avg_ear
-            self.EYE_CLOSED_COUNTER = max(0, self.EYE_CLOSED_COUNTER + (2 if avg_ear < self.EAR_CRITICAL_THRESHOLD else 1 if avg_ear < self.EAR_THRESHOLD else -2))
-            status["drowsy"] = self.EYE_CLOSED_COUNTER >= self.DROWSINESS_FRAME_LIMIT
+            eyes_closed = avg_ear < self.EAR_THRESHOLD
+            if eyes_closed:
+                self._eyes_closed_since = self._eyes_closed_since or time.monotonic()
+                self.EYE_CLOSED_COUNTER += 1
+            else:
+                self._eyes_closed_since = None
+                self.EYE_CLOSED_COUNTER = max(0, self.EYE_CLOSED_COUNTER - 2)
+            closed_duration = 0.0 if self._eyes_closed_since is None else time.monotonic() - self._eyes_closed_since
+            status["drowsy"] = closed_duration >= 1.5
             mar = self.calculate_mar(landmarks)
             status["mar"] = mar
             self.YAWN_COUNTER = self.YAWN_COUNTER + 1 if mar > self.MAR_THRESHOLD else max(0, self.YAWN_COUNTER - 1)

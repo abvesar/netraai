@@ -91,6 +91,26 @@ From the project root:
 & ".venv\Scripts\python.exe" fleet_gatekeeper_hub.py --driver-id drv_001 --vehicle-id veh_001 --drowsiness-score 0.82 --distraction-score 0.74 --yawning-score 0.2 --phone-usage-score 0.1 --speed-kph 82 --max-cycles 1 --transmission-mode cloud
 ```
 
+### 2a) Stakeholder demo: hybrid satellite failover
+
+Run the hub continuously with the hybrid route selected:
+
+```powershell
+& ".venv\Scripts\python.exe" -u fleet_gatekeeper_hub.py --transmission-mode hybrid --cellular-state auto --max-cycles 0
+```
+
+Turn off Wi-Fi or disconnect the hotspot. When the reachability probe fails, the terminal prints the network-critical transition and a compact satellite packet. Restore the connection to see the cloud route and `store_forward_sync` message. `auto` probes an internet endpoint, so it demonstrates endpoint reachability rather than identifying a specific physical 4G/5G modem.
+
+### 2b) Stakeholder demo: keyboard CAN-bus telemetry
+
+Use the Windows arrow keys while the hub runs:
+
+```powershell
+& ".venv\Scripts\python.exe" -u fleet_gatekeeper_hub.py --transmission-mode hybrid --cellular-state up --keyboard-demo --max-cycles 0
+```
+
+Up increases speed by 5 km/h, Down decreases it, Left/Right simulates looking away, and Escape clears the look-away signal. The `can_telemetry` line shows the current in-memory vehicle state; speeding and distraction combine into the high-risk dispatch path.
+
 ### 3) Start the demo remote camera stream
 
 This is useful when no local webcam is available.
